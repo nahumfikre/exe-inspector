@@ -156,6 +156,43 @@ static void inspect_fat(const std::vector<uint8_t>& b) {
     }
 }
 
+// --- String extraction ---
+static bool is_printable(uint8_t c) {
+    return (c >= 0x20 && c <= 0x7E) || c == '\t' || c == '\n' || c == '\r';
+}
+
+static void extract_strings(const std::vector<uint8_t>& b, size_t min_len = 4) {
+    std::cout << "\n--- Strings (min length " << min_len << ") ---\n";
+
+    std::string current;
+    size_t start_offset = 0;
+    bool in_string = false;
+
+    for (size_t i = 0; i < b.size(); ++i) {
+        if (is_printable(b[i]) && b[i] != '\n' && b[i] != '\r') {
+            if (!in_string) {
+                start_offset = i;
+                in_string = true;
+                current.clear();
+            }
+            current += static_cast<char>(b[i]);
+        } else {
+            if (in_string && current.length() >= min_len) {
+                std::cout << "0x" << std::hex << std::setw(8) << std::setfill('0')
+                          << start_offset << std::dec << ": " << current << "\n";
+            }
+            in_string = false;
+            current.clear();
+        }
+    }
+
+    // Handle case where file ends with a string
+    if (in_string && current.length() >= min_len) {
+        std::cout << "0x" << std::hex << std::setw(8) << std::setfill('0')
+                  << start_offset << std::dec << ": " << current << "\n";
+    }
+}
+
 int main(int argc, char** argv) {
     if (argc < 2) {
         std::cerr << "usage: exe_inspector <file> [--verbose]\n";
@@ -185,5 +222,10 @@ int main(int argc, char** argv) {
             std::cout << "magic(first4): 0x" << std::hex << be32(&bytes[0]) << std::dec << "\n";
         }
     }
+
+    if (VERBOSE) {
+        extract_strings(bytes);
+    }
+
     return 0;
 }
